@@ -6,13 +6,13 @@ from sklearn.base import is_classifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
-from sklearn.tree import DecisionTreeClassifier as tc, DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
 from sklearn import tree
 from sklearn.utils.validation import check_is_fitted
 from sklearn.metrics import balanced_accuracy_score
 
 
-class MyDecisionTreeClassifier(tc):
+class MyDecisionTreeClassifier(DecisionTreeClassifier):
     ALPHA_PROB = 0.1
 
     def predict_proba(self, X, check_input=True):
@@ -103,9 +103,12 @@ class MyDecisionTreeClassifier(tc):
 
 
 if __name__ == '__main__':
+    names = ['tau1', 'tau2', 'tau3', 'tau4', 'p1', 'p2', 'p3', 'p4', 'g1', 'g2', 'g3', 'g4', 'stab', 'stabf']
     balance_data = pd.read_csv(
-        'C:\\Users\\wiggl\\Desktop\\Data_for_UCI_named.csv',
-        sep=',', header=None)
+        'https://archive.ics.uci.edu/ml/machine-learning-databases/00471/Data_for_UCI_named.csv',
+        sep=',', header=None, nrows=2000, names=names)
+
+    balance_data = balance_data.drop('stab', axis=1)
 
     X = balance_data.values[1:, 0:12]
     Y = balance_data.values[1:, 12]
@@ -116,10 +119,6 @@ if __name__ == '__main__':
     my_clf = MyDecisionTreeClassifier(criterion='entropy', max_depth=3)
 
     my_clf.fit(X_train, y_train)
-
-    predicts = my_clf.predict_proba(X_test)
-
-    z = accuracy_score(y_test, my_clf.predict(X_test))
 
     models = [('MODIFIED', MyDecisionTreeClassifier()), ('ORIGINAL', DecisionTreeClassifier())]
     results = []
@@ -133,17 +132,23 @@ if __name__ == '__main__':
 
     knn = MyDecisionTreeClassifier()
     knn.fit(X_train, y_train)
-    predictions = knn.predict(X_test)
-    print(accuracy_score(y_test, predictions))
 
+    # 1. confusion matrix metric
+    predictions = knn.predict(X_test)
     matrix = confusion_matrix(y_test, predictions)
     accuracy = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[1][1] + matrix[0][1] + matrix[1][0])
-    print(accuracy)
+    print('Confusion Matrix Score: ', accuracy)
 
-    print(balanced_accuracy_score(y_test, predictions))
+    # 2. balanced metric
+    print('Balanced Score: ', balanced_accuracy_score(y_test, predictions))
 
-    print(classification_report(y_test, predictions))
+    # 3. Accuracy metric
+    print('Accuracy Score:\n', accuracy_score(y_test, predictions))
 
+    # 4. F1 metric
+    print('F1 Score:\n', classification_report(y_test, predictions))
+
+    # Comparing the original classifier to our classification as a plot
     fig = plt.figure()
     fig.suptitle('Algorithm Comparison')
     ax = fig.add_subplot(111)
@@ -151,11 +156,7 @@ if __name__ == '__main__':
     ax.set_xticklabels(names)
     plt.show()
 
-    print(my_clf.tree_.feature)
-
-    print(my_clf.tree_.threshold)
-
+    # Showing up the hole tree
     tree.plot_tree(my_clf, fontsize=10)
     plt.show()
-    print(z)
 
