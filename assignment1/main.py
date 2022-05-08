@@ -2,26 +2,26 @@ import random
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
+from pandas.plotting import scatter_matrix
 from sklearn.base import is_classifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
 from sklearn import tree
 from sklearn.utils.validation import check_is_fitted
 from sklearn.metrics import balanced_accuracy_score
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import RepeatedKFold
 
 
 class MyDecisionTreeClassifier(DecisionTreeClassifier):
-    ALPHA_PROB = 0.1
+    ALPHA = 0.1
 
     def predict_proba(self, X, check_input=True):
 
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
-        arr = []
-        for i in range(len(X)):
-            arr.append(self.myPredict(X, i))
+        arr = self.myPredict(X)
         proba = np.array(arr)
         if self.n_outputs_ == 1:
             proba = proba[:, : self.n_classes_]
@@ -43,37 +43,46 @@ class MyDecisionTreeClassifier(DecisionTreeClassifier):
 
         return all_proba
 
-    def myPredict(self, x_test, sample_id):
+    def myPredict(self, x_test):
+        arr = []
+        for i in range(len(x_test)):
+            children_left = self.tree_.children_left
+            children_right = self.tree_.children_right
+            feature = self.tree_.feature
+            threshold = self.tree_.threshold
 
-        children_left = self.tree_.children_left
-        children_right = self.tree_.children_right
-        feature = self.tree_.feature
-        threshold = self.tree_.threshold
+            stack = [0]
+            while stack:
+                node_id = stack.pop()
+                is_split_node = children_left[node_id] != children_right[node_id]
 
-        stack = [0]
-        while len(stack) > 0:
-            node_id = stack.pop()
-            if children_left[node_id] == children_right[node_id]:
-                return self.tree_.value[node_id][0]
-
-            to_test = float(x_test[sample_id, feature[node_id]])
-            if to_test <= threshold[node_id]:
-                if random.random() >= self.ALPHA_PROB:
-                    stack.append(children_left[node_id])
+                if is_split_node:
+                    to_test = float(x_test[i, feature[node_id]])
+                    rand_num = random.random()
+                    if to_test > threshold[node_id]:
+                        # should go right but in ALPHA error probability go left
+                        if rand_num < self.ALPHA:
+                            stack.append(children_left[node_id])
+                        # normally go right
+                        else:
+                            stack.append(children_right[node_id])
+                    else:
+                        # should go left but in ALPHA error probability go right
+                        if rand_num < self.ALPHA:
+                            stack.append(children_right[node_id])
+                        # normally go left
+                        else:
+                            stack.append(children_left[node_id])
                 else:
-                    stack.append(children_right[node_id])
-            else:
-                if random.random() >= self.ALPHA_PROB:
-                    stack.append(children_right[node_id])
-                else:
-                    stack.append(children_left[node_id])
+                    # its a leaf node
+                    arr.append(self.tree_.value[node_id][0])
+                    break
+        return arr
 
     def predict(self, X, check_input=True):
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
-        arr = []
-        for i in range(len(X)):
-            arr.append(self.myPredict(X, i))
+        arr = self.myPredict(X)
         proba = arr
         proba = np.array(proba)
         n_samples = X.shape[0]
@@ -105,7 +114,7 @@ class MyDecisionTreeClassifier(DecisionTreeClassifier):
 if __name__ == '__main__':
     names = ['tau1', 'tau2', 'tau3', 'tau4', 'p1', 'p2', 'p3', 'p4', 'g1', 'g2', 'g3', 'g4', 'stab', 'stabf']
     balance_data = pd.read_csv(
-        'https://archive.ics.uci.edu/ml/machine-learning-databases/00471/Data_for_UCI_named.csv',
+        'C:\\Users\\wiggl\\Desktop\\Data_for_UCI_named_1.csv',
         sep=',', header=None, nrows=2000, names=names)
 
     balance_data = balance_data.drop('stab', axis=1)
@@ -113,40 +122,39 @@ if __name__ == '__main__':
     X = balance_data.values[1:, 0:12]
     Y = balance_data.values[1:, 12]
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, Y, test_size=0.2, random_state=None)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
 
-    my_clf = MyDecisionTreeClassifier(criterion='entropy', max_depth=3)
-
-    my_clf.fit(X_train, y_train)
-
-    models = [('MODIFIED', MyDecisionTreeClassifier()), ('ORIGINAL', DecisionTreeClassifier())]
     results = []
     names = []
-    for name, model in models:
-        cv_results = cross_val_score(model, X_train, y_train, cv=10, scoring='accuracy')
-        results.append(cv_results)
-        names.append(name)
-        msg = "%s: %f (%f)" % (name, cv_results.mean(), cv_results.std())
-        print(msg)
+    cv_results = cross_val_score(MyDecisionTreeClassifier(criterion='entropy', max_depth=7), X_train, Y_train, cv=RepeatedKFold(n_splits=10, n_repeats=5), scoring='accuracy')
+    results.append(cv_results)
+    names.append('MODIFIED_DecisionTree')
+    msg = "%s: %f" % ('MODIFIED_DecisionTree average score', cv_results.mean())
+    print(msg)
+
+    cv_results = cross_val_score(DecisionTreeClassifier(criterion='entropy', max_depth=7), X_train, Y_train, cv=RepeatedKFold(n_splits=10, n_repeats=5), scoring='accuracy')
+    results.append(cv_results)
+    names.append('ORIGINAL_DecisionTree')
+    msg = "%s: %f" % ('ORIGINAL_DecisionTree average score', cv_results.mean())
+    print(msg)
 
     knn = MyDecisionTreeClassifier()
-    knn.fit(X_train, y_train)
+    knn.fit(X_train, Y_train)
 
     # 1. confusion matrix metric
     predictions = knn.predict(X_test)
-    matrix = confusion_matrix(y_test, predictions)
+    matrix = confusion_matrix(Y_test, predictions)
     accuracy = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[1][1] + matrix[0][1] + matrix[1][0])
     print('Confusion Matrix Score: ', accuracy)
 
     # 2. balanced metric
-    print('Balanced Score: ', balanced_accuracy_score(y_test, predictions))
+    print('Balanced Score: ', balanced_accuracy_score(Y_test, predictions))
 
     # 3. Accuracy metric
-    print('Accuracy Score:\n', accuracy_score(y_test, predictions))
+    print('Accuracy Score: ', accuracy_score(Y_test, predictions))
 
     # 4. F1 metric
-    print('F1 Score:\n', classification_report(y_test, predictions))
+    print('F1 Score:\n', classification_report(Y_test, predictions))
 
     # Comparing the original classifier to our classification as a plot
     fig = plt.figure()
@@ -157,6 +165,7 @@ if __name__ == '__main__':
     plt.show()
 
     # Showing up the hole tree
+    my_clf = MyDecisionTreeClassifier(criterion='entropy', max_depth=3)
+    my_clf.fit(X_train, Y_train)
     tree.plot_tree(my_clf, fontsize=10)
     plt.show()
-
