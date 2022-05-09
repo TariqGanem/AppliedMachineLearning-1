@@ -141,8 +141,28 @@ if __name__ == '__main__':
     knn = MyDecisionTreeClassifier()
     knn.fit(X_train, Y_train)
 
+    print('Our Classifier metrics:\n')
     # 1. confusion matrix metric
     predictions = knn.predict(X_test)
+    matrix = confusion_matrix(Y_test, predictions)
+    accuracy = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[1][1] + matrix[0][1] + matrix[1][0])
+    print('Confusion Matrix Score: ', accuracy)
+
+    # 2. balanced metric
+    print('Balanced Score: ', balanced_accuracy_score(Y_test, predictions))
+
+    # 3. Accuracy metric
+    print('Accuracy Score: ', accuracy_score(Y_test, predictions))
+
+    # 4. F1 metric
+    print('F1 Score:\n', classification_report(Y_test, predictions))
+
+    knn_original = DecisionTreeClassifier()
+    knn_original.fit(X_train, Y_train)
+
+    print('Original Classifier metrics:\n')
+    # 1. confusion matrix metric
+    predictions = knn_original.predict(X_test)
     matrix = confusion_matrix(Y_test, predictions)
     accuracy = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[1][1] + matrix[0][1] + matrix[1][0])
     print('Confusion Matrix Score: ', accuracy)
