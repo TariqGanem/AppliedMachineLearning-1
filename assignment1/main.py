@@ -15,7 +15,39 @@ from sklearn.model_selection import RepeatedKFold
 
 
 class MyDecisionTreeClassifier(DecisionTreeClassifier):
-    ALPHA = 0.1
+
+    def __init__(
+            self,
+            *,
+            criterion="gini",
+            splitter="best",
+            max_depth=None,
+            min_samples_split=2,
+            min_samples_leaf=1,
+            min_weight_fraction_leaf=0.0,
+            max_features=None,
+            random_state=None,
+            max_leaf_nodes=None,
+            min_impurity_decrease=0.0,
+            class_weight=None,
+            ccp_alpha=0.0,
+            ALPHA=0.1
+    ):
+        self.ALPHA = ALPHA
+        super().__init__(
+            criterion=criterion,
+            splitter=splitter,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            max_features=max_features,
+            max_leaf_nodes=max_leaf_nodes,
+            class_weight=class_weight,
+            random_state=random_state,
+            min_impurity_decrease=min_impurity_decrease,
+            ccp_alpha=ccp_alpha,
+        )
 
     def predict_proba(self, X, check_input=True):
 
@@ -126,24 +158,26 @@ if __name__ == '__main__':
 
     results = []
     names = []
-    cv_results = cross_val_score(MyDecisionTreeClassifier(criterion='entropy', max_depth=7), X_train, Y_train, cv=RepeatedKFold(n_splits=10, n_repeats=5), scoring='accuracy')
+    cv_results = cross_val_score(MyDecisionTreeClassifier(criterion='entropy', max_depth=7), X_train, Y_train,
+                                 cv=RepeatedKFold(n_splits=10, n_repeats=5), scoring='accuracy')
     results.append(cv_results)
     names.append('MODIFIED_DecisionTree')
     msg = "%s: %f" % ('MODIFIED_DecisionTree average score', cv_results.mean())
     print(msg)
 
-    cv_results = cross_val_score(DecisionTreeClassifier(criterion='entropy', max_depth=7), X_train, Y_train, cv=RepeatedKFold(n_splits=10, n_repeats=5), scoring='accuracy')
+    cv_results = cross_val_score(DecisionTreeClassifier(criterion='entropy', max_depth=7), X_train, Y_train,
+                                 cv=RepeatedKFold(n_splits=10, n_repeats=5), scoring='accuracy')
     results.append(cv_results)
     names.append('ORIGINAL_DecisionTree')
     msg = "%s: %f" % ('ORIGINAL_DecisionTree average score', cv_results.mean())
     print(msg)
 
-    knn = MyDecisionTreeClassifier()
-    knn.fit(X_train, Y_train)
+    dtc = MyDecisionTreeClassifier()
+    dtc.fit(X_train, Y_train)
 
     print('Our Classifier metrics:\n')
     # 1. confusion matrix metric
-    predictions = knn.predict(X_test)
+    predictions = dtc.predict(X_test)
     matrix = confusion_matrix(Y_test, predictions)
     accuracy = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[1][1] + matrix[0][1] + matrix[1][0])
     print('Confusion Matrix Score: ', accuracy)
@@ -157,12 +191,12 @@ if __name__ == '__main__':
     # 4. F1 metric
     print('F1 Score:\n', classification_report(Y_test, predictions))
 
-    knn_original = DecisionTreeClassifier()
-    knn_original.fit(X_train, Y_train)
+    dtc_original = DecisionTreeClassifier()
+    dtc_original.fit(X_train, Y_train)
 
     print('Original Classifier metrics:\n')
     # 1. confusion matrix metric
-    predictions = knn_original.predict(X_test)
+    predictions = dtc_original.predict(X_test)
     matrix = confusion_matrix(Y_test, predictions)
     accuracy = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[1][1] + matrix[0][1] + matrix[1][0])
     print('Confusion Matrix Score: ', accuracy)
@@ -189,3 +223,16 @@ if __name__ == '__main__':
     my_clf.fit(X_train, Y_train)
     tree.plot_tree(my_clf, fontsize=10)
     plt.show()
+
+    models = [(0.1, MyDecisionTreeClassifier(ALPHA=0.1, criterion='entropy', max_depth=3)),
+             (0.2, MyDecisionTreeClassifier(ALPHA=0.2, criterion='entropy', max_depth=3)),
+             (0.3, MyDecisionTreeClassifier(ALPHA=0.3, criterion='entropy', max_depth=3)),
+             (0.4, MyDecisionTreeClassifier(ALPHA=0.4, criterion='entropy', max_depth=3)),
+             (0.5, MyDecisionTreeClassifier(ALPHA=0.5, criterion='entropy', max_depth=3)),
+             (0.6, MyDecisionTreeClassifier(ALPHA=0.6, criterion='entropy', max_depth=3))]
+
+    alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    for alpha, model in models:
+        model.fit(X_train, Y_train)
+        score = accuracy_score(Y_test, model.predict(X_test))
+        print('With alpha ' + str(alpha), score)
